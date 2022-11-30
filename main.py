@@ -48,45 +48,6 @@ def isRedFloorVisible(frame):
     boundaries = getRedFloorBoundaries()
     return isMostlyColor(frame, boundaries)
 
-
-def getTrafficRedLightBoundaries():
-    """
-    Gets the traffic red light hsv boundaries and success boundaries
-    :return: [[lower color and success boundaries for red light], [upper color and success boundaries for red light]]
-    """
-    return getBoundaries("trafficRedBoundaries.txt")
-
-
-def isTrafficRedLightVisible(frame):
-    """
-    Detects whether or not we can see a stop sign
-    :param frame:
-    :return: [(True is the camera sees a stop light, false otherwise), video output]
-    """
-    print("Checking for traffic stop")
-    boundaries = getTrafficRedLightBoundaries()
-    return isMostlyColor(frame, boundaries)
-
-
-def getTrafficGreenLightBoundaries():
-    """
-    Gets the traffic green light hsv boundaries and success boundaries
-    :return: [[lower color and success boundaries for green light], [upper color and success boundaries for green light]]
-    """
-    return getBoundaries("trafficGreenboundaries.txt")
-
-
-def isTrafficGreenLightVisible(frame):
-    """
-    Detects whether or not we can see a green traffic light
-    :param frame:
-    :return: [(True is the camera sees a green light, false otherwise), video output]
-    """
-    print("Checking For Green Light")
-    boundaries = getTrafficGreenLightBoundaries()
-    return isMostlyColor(frame, boundaries)
-
-
 def isMostlyColor(image, boundaries):
     """
     Detects whether or not the majority of a color on the screen is a particular color
@@ -439,17 +400,8 @@ while counter < max_ticks:
 
     # check for stop sign/traffic light every couple ticks
     if ((counter + 1) % stopSignCheck) == 0:
-        # check for stop light
-        if not passedStopLight and not atStopLight:
-            trafficStopBool, _ = isTrafficRedLightVisible(frame)
-            print(trafficStopBool)
-            if trafficStopBool:
-                print("detected red light, stopping")
-                stop()
-                atStopLight = True
-                continue
         # check for the first stop sign
-        elif passedStopLight and not passedFirstStopSign:
+        if not passedFirstStopSign:
             isStopSignBool, floorSight = isRedFloorVisible(frame)
             if sightDebug:
                 cv2.imshow("floorSight", floorSight)
@@ -480,18 +432,6 @@ while counter < max_ticks:
         print("Going FASTER")
         go_faster()
         current_speed += go_faster_addition
-
-    # look for green stop light while waiting after red stop light
-    if not passedStopLight and atStopLight:
-        print("waiting at red light")
-        trafficGoBool, _ = isTrafficGreenLightVisible(frame)
-        if trafficGoBool:
-            passedStopLight = True
-            atStopLight = False
-            print("green light!")
-            go()
-        else:
-            continue
 
     # process the frame to determine the desired steering angle
     # cv2.imshow("original",frame)
@@ -532,6 +472,8 @@ while counter < max_ticks:
         turn_amt = left
     elif turn_amt < right:
         turn_amt = right
+    else:
+        turn_amt = turn_amt
 
     # turn!
     PWM.set_duty_cycle(steeringPin, turn_amt)
