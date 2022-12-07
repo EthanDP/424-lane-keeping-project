@@ -1,21 +1,22 @@
+import math
+import time
+
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import math
-import time
 
 # Based on: https://www.instructables.com/Autonomous-Lane-Keeping-Car-Using-Raspberry-Pi-and/
 
 # Throttle
-throttlePin = "P8_13"
-go_forward = 7.91
-go_faster_addition = 0.022
+throttlePin = "P9_14"
+go_forward = 8.16
+go_faster_addition = 0.01
 go_faster_tick_delay = 80
 go_faster_tick = 0  # Do not change this here. Code will set this value after seeing stop sign
 dont_move = 7.5
 
 # Steering
-steeringPin = "P9_14"
+steeringPin = "P9_16"
 left = 9
 right = 6
 
@@ -29,6 +30,36 @@ passedFirstStopSign = False
 
 secondStopLightTick = 0
 
+class PulseWidthModulation():
+    def __init__(self):
+        self.period = 20000000
+
+    def set_duty_cycle(self, pin_value, duty_cycle):
+
+        extension = "a"
+
+        if pin_value == "P9_16":
+            extension = "b"
+
+        new_duty_cycle = int(duty_cycle * .01 * self.period)
+        
+        with open('/dev/bone/pwm/1/' + extension + '/duty_cycle', 'w') as filetowrite:
+            filetowrite.write(str(new_duty_cycle))
+
+    def stop(self, pin_value):
+
+        extension = "a"
+
+        if pin_value == "P9_16":
+            extension = "b"
+
+        with open('/dev/bone/pwm/1/' + extension + '/enable', 'w') as filetowrite:
+            filetowrite.write('0')
+
+    def cleanup(self):
+        print("clean up clean up, everybody do your share")
+
+PWM = PulseWidthModulation()
 
 def getRedFloorBoundaries():
     """
@@ -44,7 +75,7 @@ def isRedFloorVisible(frame):
     :param frame: Image
     :return: [(True is the camera sees a red on the floor, false otherwise), video output]
     """
-    print("Checking for floor stop")
+    # print("Checking for floor stop")
     boundaries = getRedFloorBoundaries()
     return isMostlyColor(frame, boundaries)
 
@@ -69,11 +100,12 @@ def isMostlyColor(image, boundaries):
 
     #Calculate what percentage of image falls between color boundaries
     percentage_detected = np.count_nonzero(mask) * 100 / np.size(mask)
-    print("percentage_detected " + str(percentage_detected) + " lower " + str(lower) + " upper " + str(upper))
+    # print("percentage_detected " + str(percentage_detected) + " lower " + str(lower) + " upper " + str(upper))
     # If the percentage percentage_detected is betweeen the success boundaries, we return true, otherwise false for result
     result = percentage[0] < percentage_detected <= percentage[1]
     if result:
-        print(percentage_detected)
+        # print(percentage_detected)
+        pass
     return result, output
 
 
@@ -111,12 +143,14 @@ def getBoundaries(filename):
 
 
 def initialize_car():
-    # give 7.5% duty at 50Hz to throttle
-    PWM.start(throttlePin, dont_move, frequency=50)
-
-    # wait for car to be ready
-    input()
-    PWM.start(steeringPin, dont_move, frequency=50)
+    print(
+        """Me when I, car.  
+        ______
+        /|_||_\`.__
+        (   _    _ _\
+        =`-(_)--(_)-
+        """
+    )
 
 
 def stop():
@@ -142,6 +176,12 @@ def go_faster():
     """
     PWM.set_duty_cycle(throttlePin, go_forward + go_faster_addition)
 
+def go_slower():
+    """
+    Sends the car forward at a slower PWM
+    :return: none
+    """
+    PWM.set_duty_cycle(throttlePin, go_forward - go_faster_addition)
 
 def go_backwards():
     """
@@ -216,7 +256,7 @@ def average_slope_intercept(frame, line_segments):
     for line_segment in line_segments:
         for x1, y1, x2, y2 in line_segment:
             if x1 == x2:
-                print("skipping vertical lines (slope = infinity")
+                # print("skipping vertical lines (slope = infinity")
                 continue
 
             fit = np.polyfit((x1, x2), (y1, y2), 1)
@@ -362,7 +402,7 @@ def plot_pwm(speed_pwms, turn_pwms, error, show_img=False):
 initialize_car()
 
 # set up video
-video = cv2.VideoCapture(0)
+video = cv2.VideoCapture(2)
 video.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
 video.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
@@ -370,7 +410,7 @@ video.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 time.sleep(1)
 
 # PD variables
-kp = 0.085
+kp = 0.095
 kd = kp * 0.1
 lastTime = 0
 lastError = 0
@@ -392,11 +432,22 @@ current_speed = go_forward
 stopSignCheck = 1
 sightDebug = False
 isStopSignBool = False
+
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 while counter < max_ticks:
     ret, original_frame = video.read()
     frame = cv2.resize(original_frame, (160, 120))
     if sightDebug:
         cv2.imshow("Resized Frame", frame)
+
+    # reading the encoder data and changing the speed
+    with open('/dev/fred', 'w') as filetoread:
+        time_diff = filetoread.read()
+
+    if time_diff >= 5:
+        go_faster()
+    elif time_diff <= 3:
+        go_slower()
 
     # check for stop sign/traffic light every couple ticks
     if ((counter + 1) % stopSignCheck) == 0:
@@ -453,7 +504,7 @@ while counter < max_ticks:
 
     # PD Code
     error = -deviation
-    base_turn = 7.5
+    base_turn = 7.75
     proportional = kp * error
     derivative = kd * (error - lastError) / dt
 
@@ -467,7 +518,7 @@ while counter < max_ticks:
 
     # caps turns to make PWM values
     if 7.2 < turn_amt < 7.8:
-        turn_amt = 7.5
+        turn_amt = 7.75
     elif turn_amt > left:
         turn_amt = left
     elif turn_amt < right:
@@ -491,6 +542,17 @@ while counter < max_ticks:
         break
 
     counter += 1
+
+'''
+ _______
+< frick >
+ -------
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+'''
 
 # clean up resources
 video.release()
