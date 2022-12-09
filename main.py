@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Based on: https://www.instructables.com/Autonomous-Lane-Keeping-Car-Using-Raspberry-Pi-and/
+# Reference: Team Really Bad Idea https://www.hackster.io/really-bad-idea/autonomous-path-following-car-6c4992 
 
 # Throttle
 throttlePin = "P9_14"
@@ -147,7 +148,7 @@ def initialize_car():
         """Me when I, car.  
         ______
         /|_||_\`.__
-        (   _    _ _\
+        (   _    _ _\ \n
         =`-(_)--(_)-
         """
     )
@@ -447,7 +448,7 @@ while counter < max_ticks:
         time_diff = int(filetoread.read())
 
     print("Time diff", time_diff)
-
+    # Encoder time me when I check the encoder
     if time_diff >= 120:
         go_faster()
     elif time_diff <= 110 and time_diff > 7:

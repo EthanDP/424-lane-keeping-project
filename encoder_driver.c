@@ -1,4 +1,5 @@
 // References: https://github.com/Johannes4Linux/Linux_Driver_Tutorial/blob/main/11_gpio_irq/gpio_irq.c
+// Lecture slides for your class thank you dr. young
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/kernel.h>
@@ -14,18 +15,6 @@
 #define DEVICE_NAME "carencoder"
 #define CLASS_NAME "carclass"
 
-static int major_number;
-static struct class* encoder_class = NULL;
-static struct device* encoder_device = NULL;
-
-static int device_open(struct inode *, struct file *);
-static ssize_t device_read(struct file *, char __user *, size_t, loff_t *);
-
-static struct file_operations fops = {
-    .open = device_open,
-    .read = device_read,
-};
-
 unsigned int irq_number;
 struct gpio_desc *led_gpio;
 struct gpio_desc *encoder_gpio;
@@ -33,19 +22,12 @@ struct gpio_desc *encoder_gpio;
 static int elapsed_ms = 0;
 ktime_t start_time, old_time, elapsed;
 
+// Adds elapsed_ms to a parameters file under sys/modules/parameters
 module_param(elapsed_ms, int, S_IRUGO);
 
-static int device_open(struct inode *inodep, struct file *filep){
-    printk(KERN_INFO "Encoder device opened.");
-    return 0;
-}
-
-static ssize_t device_read(struct file *filep, char __user *buf, size_t length, loff_t *offset){
-    return (ssize_t) elapsed_ms;
-}
-
 static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct pt_regs *regs) {
-
+    // Calculates the elapsed time by getting the current time and subtracting the
+    // old time from it
     ktime_t new_time = ktime_get();
     elapsed = ktime_sub(new_time, old_time);
     old_time = new_time;
@@ -60,11 +42,6 @@ static irq_handler_t encoder_irq_handler(unsigned int irq, void *dev_id, struct 
 static int led_probe(struct platform_device *pdev) {
     
     printk("Setting up encoder IRQ.\n");
-
-    major_number = register_chrdev(0, DEVICE_NAME, &fops);
-    encoder_class = class_create(THIS_MODULE, CLASS_NAME);
-    encoder_device = device_create(encoder_class, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME);
-
     old_time = ktime_get();
 
     encoder_gpio = devm_gpiod_get(&pdev->dev, "userbutton", GPIOD_IN);
@@ -84,11 +61,7 @@ static int led_probe(struct platform_device *pdev) {
 
 static int led_remove(struct platform_device *pdev) {
     struct device *temp_dev;
-    device_destroy(encoder_class, MKDEV(major_number,0));
-    class_unregister(encoder_class);
-    class_destroy(encoder_class);
-    unregister_chrdev(major_number, DEVICE_NAME);
-
+    // Frees the IRQ woah neat
     temp_dev = &pdev->dev;
     free_irq(irq_number, &temp_dev->id);
     printk("IRQ Freed!\n");
@@ -103,7 +76,7 @@ static struct of_device_id encoder_gpio_match[] = {
     {/* leave alone - keep this here (end node) */},
 };
 
-
+// Encoder GPIO driver
 static struct platform_driver encoder_gpio_driver = {
     .probe = led_probe,
     .remove = led_remove,
@@ -114,6 +87,7 @@ static struct platform_driver encoder_gpio_driver = {
     },
 };
 
+// Module stuff and things
 module_platform_driver(encoder_gpio_driver);
 MODULE_DESCRIPTION("Use of the accursed gpiod library to do some blinking LED stuff");
 MODULE_AUTHOR("Ethan Peck");
