@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 BeagleBoard.org - https://beagleboard.org/
+ *
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec#PWM
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/board/k3-j721e-bone-pins.h>
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BONE-PWM0.kernel = __TIMESTAMP__;
+	};
+};
+
+&bone_pwm_0 {
+	status = "okay";
+};
+
+&{/} {
+	gpio-leds {
+		compatible = "encoder-gpio";
+		userbutton-gpios = <gpio_P8_03 GPIO_ACTIVE_HIGH>;
+	};
+};
