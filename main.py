@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 # Throttle
 throttlePin = "P9_14"
-go_forward = 8.16
+go_forward = 8.15
 go_faster_addition = 0.01
 go_faster_tick_delay = 80
 go_faster_tick = 0  # Do not change this here. Code will set this value after seeing stop sign
@@ -17,8 +17,8 @@ dont_move = 7.5
 
 # Steering
 steeringPin = "P9_16"
-left = 9
-right = 6
+left = 8.8
+right = 6.2
 
 # Max number of loops
 max_ticks = 2000
@@ -440,13 +440,17 @@ while counter < max_ticks:
     if sightDebug:
         cv2.imshow("Resized Frame", frame)
 
-    # reading the encoder data and changing the speed
-    with open('/dev/fred', 'w') as filetoread:
-        time_diff = filetoread.read()
+    # reading the encoder data and changing the speed   
+    time_diff = 7
+    
+    with open("/sys/module/encoder_driver/parameters/elapsed_ms", "r") as filetoread:
+        time_diff = int(filetoread.read())
 
-    if time_diff >= 5:
+    print("Time diff", time_diff)
+
+    if time_diff >= 120:
         go_faster()
-    elif time_diff <= 3:
+    elif time_diff <= 110 and time_diff > 7:
         go_slower()
 
     # check for stop sign/traffic light every couple ticks
@@ -468,10 +472,11 @@ while counter < max_ticks:
                 # add a delay to calling go faster
                 go_faster_tick = counter + go_faster_tick_delay
                 print("first stop finished!")
+                go_faster()
+                go_faster()
         # check for the second stop sign
-        elif passedStopLight and passedFirstStopSign and counter > secondStopSignTick:
+        elif passedFirstStopSign and counter > secondStopSignTick:
             isStop2SignBool, _ = isRedFloorVisible(frame)
-            print("is a floor stop: ", isStopSignBool)
             if isStop2SignBool:
                 # last stop sign detected, exits while loop
                 print("detected second stop sign, stopping")
